@@ -1,0 +1,149 @@
+/* ============================================
+   CHRONO — Core Styles
+   ============================================ */
+
+:root {
+  --bg-void: #05060a;
+  --ink: #eef1f7;
+  --ink-dim: #9aa3b5;
+  --accent: #7fd6ff;
+  --accent-warm: #ffb37f;
+  --line: rgba(255, 255, 255, 0.08);
+  --panel: rgba(255, 255, 255, 0.03);
+  --font-display: 'Space Grotesk', sans-serif;
+  --font-body: 'Inter', sans-serif;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html, body {
+  height: 100%;
+  background: var(--bg-void);
+  color: var(--ink);
+  font-family: var(--font-body);
+  overflow-x: hidden;
+}
+
+#sky-canvas {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  z-index: 0;
+  display: block;
+}
+
+#app {
+  position: relative;
+  z-index: 1;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 8vh 5vw 4vh;
+}
+
+.chrono-header {
+  text-align: center;
+  margin-bottom: 6vh;
+}
+
+.chrono-title {
+  font-family: var(--font-display);
+  font-size: clamp(2.5rem, 8vw, 4.5rem);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--ink);
+  text-shadow: 0 0 40px rgba(127, 214, 255, 0.25);
+}
+
+.chrono-subtitle {
+  font-size: 0.95rem;
+  color: var(--ink-dim);
+  letter-spacing: 0.08em;
+  text-transform: lowercase;
+  margin-top: 0.4rem;
+}
+
+.control-deck {
+  width: 100%;
+  max-width: 480px;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  padding: 1.25rem;
+  backdrop-filter: blur(20px);
+}
+
+.control-deck input {
+  font-family: var(--font-body);
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 0.75rem 1rem;
+  color: var(--ink);
+  font-size: 1rem;
+  width: 100%;
+  outline: none;
+  transition: border-color 0.2s ease;
+}
+
+.control-deck input:focus {
+  border-color: var(--accent);
+}
+
+#time-slider {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 4px;
+  background: var(--line);
+  border-radius: 2px;
+  padding: 0;
+}
+
+#time-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 12px var(--accent);
+  cursor: pointer;
+}
+
+#time-readout {
+  text-align: center;
+  font-family: var(--font-display);
+  font-size: 1.1rem;
+  color: var(--accent);
+  letter-spacing: 0.05em;
+}
+
+#info-panel {
+  margin-top: 4vh;
+  width: 100%;
+  max-width: 480px;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  font-size: 0.9rem;
+  color: var(--ink-dim);
+}
+
+#quantorix-mark {
+  position: fixed;
+  bottom: 18px;
+  right: 18px;
+  z-index: 2;
+  width: 56px;
+  height: 56px;
+  opacity: 0.85;
+}
