@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Chrono — A Living Atlas of Time & Sky</title>
+  <meta name="description" content="See the real sky, sun, moon, and weather of any place at any moment in time." />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=Inter:wght@300;400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+  <canvas id="sky-canvas"></canvas>
+
+  <main id="app">
+    <header class="chrono-header">
+      <h1 class="chrono-title">Chrono</h1>
+      <p class="chrono-subtitle">a living atlas of time &amp; sky</p>
+    </header>
+
+    <section class="control-deck">
+      <input type="text" id="location-input" placeholder="Search a place…" autocomplete="off" />
+      <input type="date" id="date-input" />
+      <input type="range" id="time-slider" min="0" max="1439" value="720" />
+      <div id="time-readout">12:00</div>
+    </section>
+
+    <section id="info-panel">
+      <div id="sun-info"></div>
+      <div id="moon-info"></div>
+      <div id="weather-info"></div>
+    </section>
+  </main>
+
+  <div id="quantorix-mark"></div>
+
+  <script src="astronomy.js"></script>
+  <script src="weather.js"></script>
+  <script src="renderer.js"></script>
+  <script src="watermark.js"></script>
+  <script src="ui.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
