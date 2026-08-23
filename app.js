@@ -18,9 +18,8 @@
 
   async function handleStateChange({ location, date, minutes }) {
     const dateObj = new Date(`${date}T00:00:00`);
-    const totalMinutes = minutes;
-    const hours = Math.floor(totalMinutes / 60);
-    const mins = totalMinutes % 60;
+    const hours = Math.floor(minutes / 60);
+    const mins = minutes % 60;
 
     const momentDate = new Date(dateObj);
     momentDate.setHours(hours, mins, 0, 0);
@@ -28,7 +27,6 @@
     // --- Astronomy (instant, pure math, no network needed) ---
     const sunPos = Astronomy.getSunPosition(momentDate, location.lat, location.lng);
     const sunTimes = Astronomy.getSunTimes(momentDate, location.lat, location.lng);
-    const moonPos = Astronomy.getSunPosition(momentDate, location.lat, location.lng); // placeholder angle base
     const moonPhase = Astronomy.getMoonPhase(momentDate);
 
     // Approximate moon azimuth as offset from sun azimuth using phase angle,
@@ -43,11 +41,10 @@
       currentWeatherHourly = await Weather.getWeather(location.lat, location.lng, date);
     }
 
-    const weatherHour = currentWeatherHourly
-      ? Weather.getHourSlice(currentWeatherHourly, hours)
-      : { temperature: null, cloudcover: 0, precipitation: 0, condition: 'clear' };
+    const weatherHour = Weather.getHourSlice(currentWeatherHourly, hours);
 
-    // --- Push everything into the renderer ---
+    // --- Push everything into the renderer, including the fields it needs
+    //     to precisely render fog/haze/storm intensity ---
     SkyRenderer.update({
       sunAltitude: sunPos.altitude,
       sunAzimuth: sunPos.azimuth,
@@ -56,7 +53,9 @@
       moonPhase: moonPhase.phase,
       condition: weatherHour.condition,
       cloudcover: weatherHour.cloudcover,
-      precipitation: weatherHour.precipitation
+      precipitation: weatherHour.precipitation,
+      visibility: weatherHour.visibility,
+      windspeed: weatherHour.windspeed
     });
 
     // --- Update the info panel text ---
