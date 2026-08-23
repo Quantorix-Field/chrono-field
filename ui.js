@@ -36,7 +36,12 @@ const UI = (() => {
       handleChange();
     });
 
-    // Try to detect user's own location on first load for an instant "wow"
+    document.addEventListener('click', (e) => {
+      if (!locationInput.contains(e.target) && !suggestionBox.contains(e.target)) {
+        suggestionBox.style.display = 'none';
+      }
+    });
+
     detectUserLocation();
   }
 
@@ -77,7 +82,7 @@ const UI = (() => {
     searchDebounce = setTimeout(async () => {
       const results = await Weather.searchLocation(query);
       renderSuggestions(results);
-    }, 350);
+    }, 300);
   }
 
   function renderSuggestions(results) {
@@ -90,12 +95,15 @@ const UI = (() => {
 
     results.forEach(place => {
       const item = document.createElement('div');
-      item.textContent = `${place.name}${place.admin1 ? ', ' + place.admin1 : ''}, ${place.country}`;
+      const parts = [place.name];
+      if (place.admin1) parts.push(place.admin1);
+      if (place.country) parts.push(place.country);
+      item.textContent = parts.join(', ');
       item.style.cssText = `
         padding: 0.65rem 1rem;
         cursor: pointer;
         font-size: 0.9rem;
-        color: #eef1f7;
+        color: #f3f0ea;
         border-bottom: 1px solid rgba(255,255,255,0.06);
       `;
       item.addEventListener('click', () => selectLocation(place));
@@ -107,12 +115,15 @@ const UI = (() => {
 
   function selectLocation(place) {
     selectedLocation = place;
-    locationInput.value = `${place.name}, ${place.country}`;
+    const parts = [place.name];
+    if (place.admin1) parts.push(place.admin1);
+    if (place.country) parts.push(place.country);
+    locationInput.value = parts.join(', ');
     suggestionBox.style.display = 'none';
     handleChange();
   }
 
-  async function detectUserLocation() {
+  function detectUserLocation() {
     if (!navigator.geolocation) {
       useDefaultLocation();
       return;
@@ -120,22 +131,33 @@ const UI = (() => {
 
     navigator.geolocation.getCurrentPosition(
       async (pos) => {
+        const lat = pos.coords.latitude;
+        const lng = pos.coords.longitude;
+
+        const placeName = await Weather.reverseGeocode(lat, lng);
+
         selectedLocation = {
-          name: 'Your location',
-          country: '',
-          lat: pos.coords.latitude,
-          lng: pos.coords.longitude
+          name: placeName ? placeName.name : 'Your location',
+          admin1: placeName ? placeName.admin1 : '',
+          country: placeName ? placeName.country : '',
+          lat,
+          lng
         };
-        locationInput.placeholder = 'Your current location';
+
+        const parts = [selectedLocation.name];
+        if (selectedLocation.admin1) parts.push(selectedLocation.admin1);
+        if (selectedLocation.country) parts.push(selectedLocation.country);
+        locationInput.value = parts.join(', ');
+
         handleChange();
       },
       () => useDefaultLocation(),
-      { timeout: 5000 }
+      { timeout: 8000, enableHighAccuracy: true }
     );
   }
 
   function useDefaultLocation() {
-    selectedLocation = { name: 'Tokyo', country: 'Japan', lat: 35.6762, lng: 139.6503 };
+    selectedLocation = { name: 'Tokyo', admin1: '', country: 'Japan', lat: 35.6762, lng: 139.6503 };
     locationInput.value = 'Tokyo, Japan';
     handleChange();
   }
@@ -164,7 +186,7 @@ const UI = (() => {
     }
     if (weatherHour) {
       const temp = weatherHour.temperature !== null ? `${Math.round(weatherHour.temperature)}°C` : '—';
-      weatherInfo.textContent = `${temp} · ${weatherHour.condition} · ${weatherHour.cloudcover}% cloud`;
+      weatherInfo.textContent = `${temp} · ${weatherHour.conditionLabel} · ${weatherHour.cloudcover}% cloud`;
     }
   }
 
