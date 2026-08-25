@@ -8,7 +8,7 @@ const UI = (() => {
 
   let locationInput, dateInput, timeSlider, timeReadout;
   let sunInfo, moonInfo, weatherInfo;
-  let suggestionBox;
+  let suggestionBox, statusBanner;
 
   let selectedLocation = null;
   let searchDebounce = null;
@@ -26,7 +26,8 @@ const UI = (() => {
     weatherInfo = document.getElementById('weather-info');
 
     createSuggestionBox();
-    setDefaultDate();
+    createStatusBanner();
+    setDateRange();
     updateTimeReadout();
 
     locationInput.addEventListener('input', handleLocationInput);
@@ -45,9 +46,11 @@ const UI = (() => {
     detectUserLocation();
   }
 
-  function setDefaultDate() {
-    const today = new Date();
-    dateInput.value = today.toISOString().split('T')[0];
+  function setDateRange() {
+    const range = Weather.getValidDateRange();
+    dateInput.min = range.min;
+    dateInput.max = range.max;
+    dateInput.value = new Date().toISOString().split('T')[0];
   }
 
   function updateTimeReadout() {
@@ -68,6 +71,22 @@ const UI = (() => {
       display: none;
     `;
     locationInput.parentNode.insertBefore(suggestionBox, locationInput.nextSibling);
+  }
+
+  function createStatusBanner() {
+    statusBanner = document.createElement('div');
+    statusBanner.style.cssText = `
+      font-size: 0.78rem;
+      color: #9aa3b5;
+      text-align: center;
+      min-height: 1.2em;
+      margin-top: 0.4rem;
+    `;
+    locationInput.closest('.control-deck').appendChild(statusBanner);
+  }
+
+  function setStatus(message) {
+    statusBanner.textContent = message || '';
   }
 
   function handleLocationInput() {
@@ -120,14 +139,18 @@ const UI = (() => {
     if (place.country) parts.push(place.country);
     locationInput.value = parts.join(', ');
     suggestionBox.style.display = 'none';
+    setStatus('');
     handleChange();
   }
 
   function detectUserLocation() {
     if (!navigator.geolocation) {
+      setStatus('Location unavailable on this device — showing Tokyo');
       useDefaultLocation();
       return;
     }
+
+    setStatus('Detecting your location…');
 
     navigator.geolocation.getCurrentPosition(
       async (pos) => {
@@ -137,7 +160,7 @@ const UI = (() => {
         const placeName = await Weather.reverseGeocode(lat, lng);
 
         selectedLocation = {
-          name: placeName ? placeName.name : 'Your location',
+          name: placeName ? placeName.name : `${lat.toFixed(2)}, ${lng.toFixed(2)}`,
           admin1: placeName ? placeName.admin1 : '',
           country: placeName ? placeName.country : '',
           lat,
@@ -149,10 +172,15 @@ const UI = (() => {
         if (selectedLocation.country) parts.push(selectedLocation.country);
         locationInput.value = parts.join(', ');
 
+        setStatus('');
         handleChange();
       },
-      () => useDefaultLocation(),
-      { timeout: 8000, enableHighAccuracy: true }
+      (err) => {
+        console.warn('Geolocation failed:', err.message);
+        setStatus('Couldn\'t access your location — showing Tokyo. Try searching your city above.');
+        useDefaultLocation();
+      },
+      { timeout: 10000, enableHighAccuracy: true, maximumAge: 0 }
     );
   }
 
@@ -185,8 +213,12 @@ const UI = (() => {
       moonInfo.textContent = `${Astronomy.phaseName(moonPhase.phase)} · ${Math.round(moonPhase.fraction * 100)}% illuminated`;
     }
     if (weatherHour) {
-      const temp = weatherHour.temperature !== null ? `${Math.round(weatherHour.temperature)}°C` : '—';
-      weatherInfo.textContent = `${temp} · ${weatherHour.conditionLabel} · ${weatherHour.cloudcover}% cloud`;
+      if (!weatherHour.hasData) {
+        weatherInfo.textContent = 'No weather data available for this date';
+      } else {
+        const temp = `${Math.round(weatherHour.temperature)}°C`;
+        weatherInfo.textContent = `${temp} · ${weatherHour.conditionLabel} · ${weatherHour.cloudcover}% cloud`;
+      }
     }
   }
 
