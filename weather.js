@@ -1,10 +1,6 @@
 /* ============================================
    WEATHER & GEOCODING
-   Live data via Open-Meteo (no API key required).
-   Automatically chooses forecast vs. historical
-   archive data based on the requested date, and
-   exposes the real valid date range so the UI
-   can't request dates with no real data.
+   Live data via Open-Meteo (no API key required)
    ============================================ */
 
 const Weather = (() => {
@@ -12,42 +8,11 @@ const Weather = (() => {
   const GEO_URL = 'https://geocoding-api.open-meteo.com/v1/search';
   const REVERSE_URL = 'https://geocoding-api.open-meteo.com/v1/reverse';
   const FORECAST_URL = 'https://api.open-meteo.com/v1/forecast';
-  const ARCHIVE_URL = 'https://archive-api.open-meteo.com/v1/archive';
-
-  const FORECAST_DAYS_AHEAD = 16;
-  const ARCHIVE_LAG_DAYS = 5; // archive data typically lags ~5 days behind real-time
-
-  function formatDate(d) {
-    return d.toISOString().split('T')[0];
-  }
-
-  // The real window of dates we can get genuine weather data for.
-  function getValidDateRange() {
-    const today = new Date();
-
-    const minDate = new Date('1940-01-01');
-
-    const maxDate = new Date(today);
-    maxDate.setDate(maxDate.getDate() + FORECAST_DAYS_AHEAD);
-
-    return {
-      min: formatDate(minDate),
-      max: formatDate(maxDate)
-    };
-  }
-
-  function isArchiveDate(dateStr) {
-    const requested = new Date(dateStr + 'T00:00:00');
-    const today = new Date();
-    const cutoff = new Date(today);
-    cutoff.setDate(cutoff.getDate() - ARCHIVE_LAG_DAYS);
-    return requested < cutoff;
-  }
 
   async function searchLocation(query) {
     if (!query || query.trim().length < 2) return [];
 
-    const url = `${GEO_URL}?name=${encodeURIComponent(query)}&count=10&language=en&format=json`;
+    const url = `${GEO_URL}?name=${encodeURIComponent(query)}&count=8&language=en&format=json`;
 
     try {
       const res = await fetch(url);
@@ -91,9 +56,6 @@ const Weather = (() => {
   }
 
   async function getWeather(lat, lng, dateStr) {
-    const useArchive = isArchiveDate(dateStr);
-    const baseUrl = useArchive ? ARCHIVE_URL : FORECAST_URL;
-
     const params = new URLSearchParams({
       latitude: lat,
       longitude: lng,
@@ -103,27 +65,19 @@ const Weather = (() => {
       end_date: dateStr
     });
 
-    const url = `${baseUrl}?${params.toString()}`;
+    const url = `${FORECAST_URL}?${params.toString()}`;
 
     try {
       const res = await fetch(url);
-      if (!res.ok) {
-        console.warn(`Weather request failed (${res.status}) for ${dateStr}`);
-        return { hourly: null, dataAvailable: false, source: useArchive ? 'archive' : 'forecast' };
-      }
       const data = await res.json();
-
-      const hourly = data.hourly || null;
-      const hasRealData = hourly && Array.isArray(hourly.temperature_2m) &&
-        hourly.temperature_2m.some(v => v !== null && v !== undefined);
-
-      return { hourly, dataAvailable: hasRealData, source: useArchive ? 'archive' : 'forecast' };
+      return data.hourly || null;
     } catch (err) {
       console.error('Weather fetch failed:', err);
-      return { hourly: null, dataAvailable: false, source: useArchive ? 'archive' : 'forecast' };
+      return null;
     }
   }
 
+  // WMO weather codes mapped to precise render categories + human labels
   const WMO_MAP = {
     0:  { category: 'clear',        label: 'Clear sky' },
     1:  { category: 'mostly-clear', label: 'Mostly clear' },
@@ -160,7 +114,7 @@ const Weather = (() => {
   }
 
   function getHourSlice(hourlyData, hourIndex) {
-    if (!hourlyData || !hourlyData.temperature_2m) {
+    if (!hourlyData) {
       return {
         temperature: null,
         cloudcover: 0,
@@ -169,16 +123,17 @@ const Weather = (() => {
         humidity: 0,
         windspeed: 0,
         condition: 'clear',
-        conditionLabel: 'No data available',
-        hasData: false
+        conditionLabel: 'Clear sky'
       };
     }
 
     const code = hourlyData.weathercode?.[hourIndex] ?? 0;
     const decoded = decodeWeatherCode(code);
     const visibility = hourlyData.visibility?.[hourIndex] ?? 10000;
-    const temp = hourlyData.temperature_2m?.[hourIndex];
 
+    // Haze isn't a distinct WMO code — infer it from reduced visibility
+    // under otherwise clear/partly-cloudy conditions, same way real
+    // weather apps distinguish "clear" from "hazy."
     let category = decoded.category;
     let label = decoded.label;
     if ((category === 'clear' || category === 'mostly-clear' || category === 'partly-cloudy') && visibility < 5000) {
@@ -187,15 +142,14 @@ const Weather = (() => {
     }
 
     return {
-      temperature: temp !== undefined ? temp : null,
+      temperature: hourlyData.temperature_2m?.[hourIndex] ?? null,
       cloudcover: hourlyData.cloudcover?.[hourIndex] ?? 0,
       precipitation: hourlyData.precipitation?.[hourIndex] ?? 0,
       visibility,
       humidity: hourlyData.relative_humidity_2m?.[hourIndex] ?? 0,
       windspeed: hourlyData.windspeed_10m?.[hourIndex] ?? 0,
       condition: category,
-      conditionLabel: label,
-      hasData: temp !== null && temp !== undefined
+      conditionLabel: label
     };
   }
 
@@ -204,8 +158,7 @@ const Weather = (() => {
     reverseGeocode,
     getWeather,
     getHourSlice,
-    decodeWeatherCode,
-    getValidDateRange
+    decodeWeatherCode
   };
 
 })();
