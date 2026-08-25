@@ -1,8 +1,8 @@
 /* ============================================
    QUANTORIX-FIELD WATERMARK
-   An engraved celestial seal — a living instrument
-   that quietly tracks real time, with a monogram
-   at its core revealing the maker's identity.
+   A particle field at rest — drifting quanta that
+   snap into a "QF" sigil on interaction, then
+   dissolve back into drift. The mark IS the idea.
    ============================================ */
 
 const Watermark = (() => {
@@ -10,6 +10,21 @@ const Watermark = (() => {
   let container, canvas, ctx, label;
   let size = 64;
   let hovering = false;
+  let formCoherence = 0; // 0 = loose field, 1 = fully formed sigil
+  let particles = [];
+
+  // Sample points outlining a compact "QF" glyph, normalized -1..1
+  const SIGIL_POINTS = [
+    // Q (circle + tail)
+    [-0.62, -0.38], [-0.5, -0.55], [-0.3, -0.62], [-0.1, -0.55],
+    [0.02, -0.38], [0.06, -0.15], [0.02, 0.08], [-0.1, 0.25],
+    [-0.3, 0.32], [-0.5, 0.25], [-0.62, 0.08], [-0.66, -0.15],
+    [-0.62, -0.38], [0.08, 0.3],
+    // F
+    [0.28, -0.55], [0.28, -0.25], [0.28, 0.05], [0.28, 0.35],
+    [0.28, -0.55], [0.55, -0.55],
+    [0.28, -0.12], [0.5, -0.12]
+  ];
 
   function init() {
     container = document.getElementById('quantorix-mark');
@@ -27,8 +42,16 @@ const Watermark = (() => {
     canvas.style.height = size + 'px';
     ctx = canvas.getContext('2d');
     ctx.scale(2, 2);
-
     container.appendChild(canvas);
+
+    particles = SIGIL_POINTS.map(([tx, ty]) => ({
+      targetX: tx, targetY: ty,
+      fieldX: (Math.random() - 0.5) * 1.4,
+      fieldY: (Math.random() - 0.5) * 1.4,
+      driftPhase: Math.random() * Math.PI * 2,
+      driftSpeed: Math.random() * 0.0006 + 0.0003,
+      driftRadius: Math.random() * 0.15 + 0.05
+    }));
 
     label = document.createElement('div');
     label.innerHTML = `<span class="wm-name">Purushotam Kumar</span><span class="wm-tag">Quantorix-Field</span>`;
@@ -41,7 +64,7 @@ const Watermark = (() => {
       align-items: flex-end;
       opacity: 0;
       transform: translateY(8px);
-      transition: opacity 0.35s ease, transform 0.35s ease;
+      transition: opacity 0.4s ease, transform 0.4s ease;
       pointer-events: none;
       white-space: nowrap;
     `;
@@ -86,75 +109,63 @@ const Watermark = (() => {
   }
 
   function loop() {
-    const now = new Date();
-    const seconds = now.getHours() * 3600 + now.getMinutes() * 60 + now.getSeconds();
-    const dayFraction = seconds / 86400;
-    const isDayNow = now.getHours() >= 6 && now.getHours() < 18;
+    const target = hovering ? 1 : 0;
+    formCoherence += (target - formCoherence) * 0.06;
 
     ctx.clearRect(0, 0, size, size);
 
     const cx = size / 2;
     const cy = size / 2;
-    const outerR = size / 2 - 3;
-    const tickR = outerR - 4;
+    const scale = size * 0.42;
+    const t = performance.now();
 
-    const ringGlow = hovering ? 'rgba(127, 214, 255, 0.9)' : 'rgba(243, 240, 234, 0.35)';
-
-    // Slowly rotating outer engraved ring
-    const ringRotation = performance.now() * 0.00003;
-    ctx.save();
-    ctx.translate(cx, cy);
-    ctx.rotate(ringRotation);
+    // Faint boundary ring, brightens as the sigil forms
     ctx.beginPath();
-    ctx.arc(0, 0, outerR, 0, Math.PI * 2);
-    ctx.strokeStyle = ringGlow;
+    ctx.arc(cx, cy, size / 2 - 2, 0, Math.PI * 2);
+    ctx.strokeStyle = `rgba(127, 214, 255, ${0.15 + formCoherence * 0.35})`;
     ctx.lineWidth = 0.8;
     ctx.stroke();
 
-    // Hour tick marks — 12 delicate radial lines, like an astrolabe rim
-    for (let i = 0; i < 12; i++) {
-      const a = (i / 12) * Math.PI * 2;
-      const isQuarter = i % 3 === 0;
-      const inner = isQuarter ? tickR - 5 : tickR - 2.5;
-      ctx.beginPath();
-      ctx.moveTo(Math.cos(a) * inner, Math.sin(a) * inner);
-      ctx.lineTo(Math.cos(a) * tickR, Math.sin(a) * tickR);
-      ctx.strokeStyle = isQuarter ? 'rgba(255,255,255,0.5)' : 'rgba(255,255,255,0.22)';
-      ctx.lineWidth = isQuarter ? 1 : 0.6;
-      ctx.stroke();
+    const positions = particles.map(p => {
+      const drift = p.driftRadius * Math.sin(t * p.driftSpeed + p.driftPhase);
+      const fx = p.fieldX + drift;
+      const fy = p.fieldY + Math.cos(t * p.driftSpeed * 1.3 + p.driftPhase) * p.driftRadius;
+
+      const px = fx + (p.targetX - fx) * formCoherence;
+      const py = fy + (p.targetY - fy) * formCoherence;
+
+      return { x: cx + px * scale, y: cy + py * scale };
+    });
+
+    // Connective lines — a loose network in field state, crisp sigil strokes when formed
+    ctx.lineWidth = 0.6 + formCoherence * 0.5;
+    for (let i = 0; i < positions.length - 1; i++) {
+      const a = positions[i], b = positions[i + 1];
+      const dist = Math.hypot(a.x - b.x, a.y - b.y);
+      const maxDist = 20 + formCoherence * 40;
+      if (dist < maxDist || formCoherence > 0.5) {
+        const alpha = formCoherence > 0.5
+          ? 0.5 * formCoherence
+          : Math.max(0, 1 - dist / maxDist) * 0.25;
+        ctx.beginPath();
+        ctx.moveTo(a.x, a.y);
+        ctx.lineTo(b.x, b.y);
+        ctx.strokeStyle = `rgba(127, 214, 255, ${alpha})`;
+        ctx.stroke();
+      }
     }
-    ctx.restore();
 
-    // Inner engraved circle framing the monogram
-    ctx.beginPath();
-    ctx.arc(cx, cy, outerR - 11, 0, Math.PI * 2);
-    ctx.strokeStyle = 'rgba(255,255,255,0.15)';
-    ctx.lineWidth = 0.6;
-    ctx.stroke();
-
-    // Sun/moon glyph orbiting at the true time-of-day position
-    const glyphAngle = dayFraction * Math.PI * 2 - Math.PI / 2;
-    const glyphR = outerR - 1.5;
-    const gx = cx + Math.cos(glyphAngle) * glyphR;
-    const gy = cy + Math.sin(glyphAngle) * glyphR;
-
-    ctx.beginPath();
-    ctx.arc(gx, gy, 2.4, 0, Math.PI * 2);
-    ctx.fillStyle = isDayNow ? '#ffb37f' : '#7fd6ff';
-    ctx.shadowColor = isDayNow ? '#ffb37f' : '#7fd6ff';
-    ctx.shadowBlur = 6;
-    ctx.fill();
-    ctx.shadowBlur = 0;
-
-    // Monogram — "QF" softly breathing, brightens on hover
-    const breathe = 0.85 + 0.15 * Math.sin(performance.now() * 0.0015);
-    ctx.font = '500 15px Fraunces, serif';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillStyle = hovering
-      ? `rgba(127, 214, 255, 1)`
-      : `rgba(243, 240, 234, ${0.55 * breathe + 0.25})`;
-    ctx.fillText('QF', cx, cy + 0.5);
+    // Particles themselves
+    positions.forEach((pos, i) => {
+      const pulse = 0.7 + 0.3 * Math.sin(t * 0.002 + i);
+      const r = (0.9 + formCoherence * 0.5) * pulse;
+      ctx.beginPath();
+      ctx.arc(pos.x, pos.y, r, 0, Math.PI * 2);
+      ctx.fillStyle = formCoherence > 0.6
+        ? `rgba(243, 240, 234, ${0.7 + formCoherence * 0.3})`
+        : `rgba(127, 214, 255, ${0.5 + formCoherence * 0.3})`;
+      ctx.fill();
+    });
 
     requestAnimationFrame(loop);
   }
