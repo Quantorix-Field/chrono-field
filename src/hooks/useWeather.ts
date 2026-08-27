@@ -4,8 +4,7 @@
    proper request cancellation — this is what
    prevents stale/out-of-order responses from
    corrupting the UI during rapid interaction.
-   ============================================ */
-
+============================================ */
 import { useState, useRef, useCallback } from 'react';
 import type { WeatherHour, WeatherHourlyRaw, WeatherCondition } from '@/types';
 
@@ -74,6 +73,7 @@ export function getHourSlice(hourly: WeatherHourlyRaw | null, hourIndex: number)
 
   let category = decoded.category;
   let label = decoded.label;
+
   if (
     (category === 'clear' || category === 'mostly-clear' || category === 'partly-cloudy') &&
     visibility < 5000
@@ -108,19 +108,21 @@ export function useWeather() {
   const cacheRef = useRef<Map<string, WeatherHourlyRaw>>(new Map());
 
   const fetchWeather = useCallback(async (lat: number, lng: number, date: string) => {
-    const cacheKey = `${lat.toFixed(2)},${lng.toFixed(2)}_${date}`;
+    // Cancel any request still in flight FIRST — before touching the cache.
+    // This is the actual fix: a stale in-flight request can never resolve
+    // and overwrite newer state, whether the new selection is a cache hit or not.
+    if (abortRef.current) {
+      abortRef.current.abort();
+    }
 
+    const cacheKey = `${lat.toFixed(2)},${lng.toFixed(2)}_${date}`;
     const cached = cacheRef.current.get(cacheKey);
     if (cached) {
+      abortRef.current = null;
       setState({ hourly: cached, dataAvailable: true, loading: false, error: null });
       return;
     }
 
-    // Cancel any request still in flight — this is the actual fix for
-    // the race condition that caused stuck/flickering visuals.
-    if (abortRef.current) {
-      abortRef.current.abort();
-    }
     const controller = new AbortController();
     abortRef.current = controller;
 
