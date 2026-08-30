@@ -7,7 +7,7 @@
 
 import type { DateRange } from '@/types';
 
-const FORECAST_DAYS_AHEAD = 16;
+const FORECAST_DAYS_AHEAD = 15;
 const ARCHIVE_LAG_DAYS = 5;
 const EARLIEST_ARCHIVE_YEAR = 1940;
 
