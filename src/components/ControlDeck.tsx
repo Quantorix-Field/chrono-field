@@ -4,10 +4,13 @@
    Search input updates instantly for the user;
    the actual geocode request is debounced so
    typing doesn't fire a request per keystroke.
+   Search results are also cached in localStorage
+   so re-searching a recent query is instant.
 ============================================ */
 import { useState, useEffect, useRef } from 'react';
 import type { Location, DateRange } from '@/types';
 import { useDebounce } from '@/hooks/useDebounce';
+import { getCached, setCached } from '@/utils/cache';
 
 interface ControlDeckProps {
   location: Location | null;
@@ -56,13 +59,22 @@ export default function ControlDeck({
   const debouncedQuery = useDebounce(query, 350);
   const requestIdRef = useRef(0);
 
-  // Search fires only on the debounced value, and guards against
-  // out-of-order responses the same way useWeather does — a fast
-  // second query can't have its result overwritten by a slow first one.
+  // Search fires only on the debounced value, checks the cache first,
+  // and guards against out-of-order responses the same way useWeather
+  // does — a fast second query can't have its result overwritten by a
+  // slow first one.
   useEffect(() => {
-    const trimmed = debouncedQuery.trim();
+    const trimmed = debouncedQuery.trim().toLowerCase();
     if (trimmed.length < 2) {
       setResults([]);
+      setSearching(false);
+      return;
+    }
+
+    const cacheKey = `geocode:${trimmed}`;
+    const cached = getCached<SearchResult[]>(cacheKey);
+    if (cached) {
+      setResults(cached);
       setSearching(false);
       return;
     }
@@ -74,8 +86,12 @@ export default function ControlDeck({
       .then((res) => res.json())
       .then((data) => {
         if (thisRequestId !== requestIdRef.current) return; // stale, ignore
-        setResults(data.results || []);
+        const found: SearchResult[] = data.results || [];
+        setResults(found);
         setSearching(false);
+        // Cache even empty results briefly — repeatedly re-querying a
+        // known-bad search string wastes a network round trip.
+        setCached(cacheKey, found, 1000 * 60 * 30); // 30 min TTL for search
       })
       .catch(() => {
         if (thisRequestId !== requestIdRef.current) return;
