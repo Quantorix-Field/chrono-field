@@ -4,9 +4,14 @@
    proper request cancellation — this is what
    prevents stale/out-of-order responses from
    corrupting the UI during rapid interaction.
+   Two cache tiers: in-memory Map (fast, dies on
+   reload) backed by localStorage (slower, survives
+   reload) — a miss on one checks the other before
+   hitting the network.
 ============================================ */
 import { useState, useRef, useCallback } from 'react';
 import type { WeatherHour, WeatherHourlyRaw, WeatherCondition } from '@/types';
+import { getCached, setCached } from '@/utils/cache';
 
 interface WeatherState {
   hourly: WeatherHourlyRaw | null;
@@ -105,21 +110,35 @@ export function useWeather() {
   });
 
   const abortRef = useRef<AbortController | null>(null);
-  const cacheRef = useRef<Map<string, WeatherHourlyRaw>>(new Map());
+  const memoryCacheRef = useRef<Map<string, WeatherHourlyRaw>>(new Map());
 
   const fetchWeather = useCallback(async (lat: number, lng: number, date: string) => {
-    // Cancel any request still in flight FIRST — before touching the cache.
-    // This is the actual fix: a stale in-flight request can never resolve
-    // and overwrite newer state, whether the new selection is a cache hit or not.
+    // Cancel any request still in flight FIRST — before touching either
+    // cache tier. A stale in-flight request can never resolve and
+    // overwrite newer state, whether the new selection is a cache hit
+    // or not.
     if (abortRef.current) {
       abortRef.current.abort();
     }
 
     const cacheKey = `${lat.toFixed(2)},${lng.toFixed(2)}_${date}`;
-    const cached = cacheRef.current.get(cacheKey);
-    if (cached) {
+
+    // Tier 1: in-memory Map — fastest, but empty after a page reload.
+    const memoryHit = memoryCacheRef.current.get(cacheKey);
+    if (memoryHit) {
       abortRef.current = null;
-      setState({ hourly: cached, dataAvailable: true, loading: false, error: null });
+      setState({ hourly: memoryHit, dataAvailable: true, loading: false, error: null });
+      return;
+    }
+
+    // Tier 2: localStorage — slower than memory, but survives reloads.
+    // A hit here also warms the in-memory tier so subsequent lookups
+    // this session skip straight to Tier 1.
+    const persistedHit = getCached<WeatherHourlyRaw>(`weather:${cacheKey}`);
+    if (persistedHit) {
+      abortRef.current = null;
+      memoryCacheRef.current.set(cacheKey, persistedHit);
+      setState({ hourly: persistedHit, dataAvailable: true, loading: false, error: null });
       return;
     }
 
@@ -136,7 +155,8 @@ export function useWeather() {
       if (controller.signal.aborted) return;
 
       if (data.hourly) {
-        cacheRef.current.set(cacheKey, data.hourly);
+        memoryCacheRef.current.set(cacheKey, data.hourly);
+        setCached(`weather:${cacheKey}`, data.hourly);
       }
 
       setState({
