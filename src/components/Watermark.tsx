@@ -146,8 +146,6 @@ export default function Watermark({ sunAltitude }: WatermarkProps) {
       return;
     }
 
-    let lastTime = performance.now();
-
     function drawFrame(ctx: CanvasRenderingContext2D, time: number) {
       ctx.clearRect(0, 0, WIDTH, HEIGHT);
 
@@ -195,7 +193,6 @@ export default function Watermark({ sunAltitude }: WatermarkProps) {
     }
 
     rafRef.current = requestAnimationFrame(loop);
-    lastTime = performance.now();
 
     return () => {
       cancelAnimationFrame(rafRef.current);
